@@ -4,19 +4,10 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine.UI;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
-#if UNITY_IOS || UNITY_TVOS
-public class NativeAPI {
-    [DllImport("__Internal")]
-    public static extern void showHostMainWindow(string lastStringColor);
-}
-#endif
-
-public class Cube : MonoBehaviour
+public class Cube : MonoBehaviour, IPointerClickHandler
 {
-    public Text text;    
-    void appendToText(string line) { text.text += line + "\n"; }
-
     void Update()
     {
         transform.Rotate(0, Time.deltaTime*10, 0);
@@ -25,48 +16,32 @@ public class Cube : MonoBehaviour
             if (Input.GetKeyDown(KeyCode.Escape)) Application.Quit();
     }
 
-    string lastStringColor = "";
-    void ChangeColor(string newColor)
+    void ChangeColor(string colorCode)
     {
-        appendToText( "Chancing Color to " + newColor );
-
-        lastStringColor = newColor;
-    
-        if (newColor == "red") GetComponent<Renderer>().material.color = Color.red;
-        else if (newColor == "blue") GetComponent<Renderer>().material.color = Color.blue;
-        else if (newColor == "yellow") GetComponent<Renderer>().material.color = Color.yellow;
-        else GetComponent<Renderer>().material.color = Color.black;
+        if (ColorUtility.TryParseHtmlString(colorCode, out Color color))
+        {
+            GetComponent<Renderer>().material.color = color;
+        } else {
+            GetComponent<Renderer>().material.color = Color.black;
+        }
     }
 
-
-    void showHostMainWindow()
+    public void OnPointerClick(PointerEventData eventData)
     {
-#if UNITY_ANDROID
+        Color color = GetComponent<Renderer>().material.color;
+        string stringColor = ColorUtility.ToHtmlStringRGBA(color);
+        Debug.Log($"[Cube.cs] OnPointerClick() called name: ${name} color: ${stringColor}");
+        #if UNITY_ANDROID
         try
         {
-            AndroidJavaClass jc = new AndroidJavaClass("com.company.product.OverrideUnityActivity");
-            AndroidJavaObject overrideActivity = jc.GetStatic<AndroidJavaObject>("instance");
-            overrideActivity.Call("showMainActivity", lastStringColor);
+            AndroidJavaClass jc = new AndroidJavaClass("io.github.yuk7.uaaltest.android.MainActivity");
+            AndroidJavaObject activity = jc.GetStatic<AndroidJavaObject>("instance");
+            activity.Call("onUnityObjectClick", stringColor);
         } catch(Exception e)
         {
-            appendToText("Exception during showHostMainWindow");
-            appendToText(e.Message);
+            Debug.LogError($"[Cube.cs] OnPointerClick() exception: ${e.Message}\n${e.StackTrace}");
         }
-#elif UNITY_IOS || UNITY_TVOS
-        NativeAPI.showHostMainWindow(lastStringColor);
-#endif
-    }
-
-    void OnGUI()
-    {
-        GUIStyle style = new GUIStyle("button");
-        style.fontSize = 30;        
-        if (GUI.Button(new Rect(10, 10, 200, 100), "Red", style)) ChangeColor("red");
-        if (GUI.Button(new Rect(10, 110, 200, 100), "Blue", style)) ChangeColor("blue");
-        if (GUI.Button(new Rect(10, 300, 400, 100), "Show Main With Color", style)) showHostMainWindow();
-
-        if (GUI.Button(new Rect(10, 400, 400, 100), "Unload", style)) Application.Unload();
-        if (GUI.Button(new Rect(440, 400, 400, 100), "Quit", style)) Application.Quit();
+        #endif
     }
 }
 
